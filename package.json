@@ -1,0 +1,15 @@
+{
+  "name": "nova-salud-sistema-web",
+  "version": "1.0.0",
+  "description": "Sistema Web Centralizado de Gestión de Inventario, Punto de Venta (POS) y Atención al Cliente para Botica Nova Salud (FarmaPlus) - PIAD-527",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

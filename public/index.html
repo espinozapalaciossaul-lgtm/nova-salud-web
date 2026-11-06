@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova Salud · FarmaPlus | Sistema Web de Gestión de Inventario y Ventas </title>
+  <meta name="description" content="Aplicación Web Fullstack (Node.js + Express + SQLite + HTML5/CSS3/JS) para la gestión centralizada de inventario, alertas automáticas de reposición y punto de venta de Botica Nova Salud." />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b6e65'/%3E%3Cpath d='M16 8v16M8 16h16' stroke='white' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E" />
+
+  <!-- Tipografías: Fontshare (General Sans + Satoshi) y Google Fonts (JetBrains Mono) -->
+  <link rel="preconnect" href="https://api.fontshare.com" />
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@500,600,700&f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Hojas de estilo -->
+  <link rel="stylesheet" href="./base.css" />
+  <link rel="stylesheet" href="./style.css" />
+
+  <!-- Iconografía Lucide y Gráficos Chart.js (Servidos localmente para carga instantánea) -->
+  <script src="./vendor/lucide.min.js"></script>
+  <script src="./vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <a href="#main-content" class="sr-only">Saltar al contenido principal</a>
+
+  <!-- Barra de Navegación Móvil (<1024px) -->
+  <nav class="mobile-nav-bar" aria-label="Navegación móvil">
+    <button type="button" class="mobile-nav-btn active" data-nav-target="dashboard" data-testid="mobile-nav-dashboard">Panel General</button>
+    <button type="button" class="mobile-nav-btn" data-nav-target="pos" data-testid="mobile-nav-pos">Punto de Venta (POS)</button>
+    <button type="button" class="mobile-nav-btn" data-nav-target="inventory" data-testid="mobile-nav-inventory">Inventario</button>
+    <button type="button" class="mobile-nav-btn" data-nav-target="alerts" data-testid="mobile-nav-alerts">Alertas (<span class="js-alert-count">0</span>)</button>
+    <button type="button" class="mobile-nav-btn" data-nav-target="records" data-testid="mobile-nav-records">Ventas y Kardex</button>
+    <button type="button" class="mobile-nav-btn" data-nav-target="academic" data-testid="mobile-nav-academic">Caso PIAD-527</button>
+  </nav>
+
+  <div class="app-shell">
+    <!-- Sidebar Lateral (Desktop) -->
+    <aside class="sidebar" aria-label="Menú principal del sistema">
+      <div>
+        <div class="brand-box">
+          <div class="brand-mark" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 4v16M4 12h16" />
+            </svg>
+          </div>
+          <div>
+            <div class="brand-title">Nova Salud</div>
+            <span class="brand-subtitle">Red FarmaPlus · Sistema Web</span>
+          </div>
+        </div>
+
+        <div class="nav-section-label">Operación Farmacéutica</div>
+        <div class="nav-list" role="navigation">
+          <button type="button" class="nav-btn active" data-nav-target="dashboard" data-testid="nav-dashboard">
+            <span class="nav-btn-left">
+              <i data-lucide="layout-dashboard"></i>
+              <span>Panel Ejecutivo</span>
+            </span>
+          </button>
+
+          <button type="button" class="nav-btn" data-nav-target="pos" data-testid="nav-pos">
+            <span class="nav-btn-left">
+              <i data-lucide="shopping-cart"></i>
+              <span>Atención y Venta </span>
+            </span>
+            <span class="badge badge-success" id="nav-cart-badge">Ágil</span>
+          </button>
+
+          <button type="button" class="nav-btn" data-nav-target="inventory" data-testid="nav-inventory">
+            <span class="nav-btn-left">
+              <i data-lucide="package-check"></i>
+              <span>Inventario Central</span>
+            </span>
+            <span class="mono-val" id="nav-sku-count">16 SKU</span>
+          </button>
+
+          <button type="button" class="nav-btn" data-nav-target="alerts" data-testid="nav-alerts">
+            <span class="nav-btn-left">
+              <i data-lucide="bell-ring"></i>
+              <span>Alertas y Reposición</span>
+            </span>
+            <span class="nav-badge js-alert-count" data-testid="badge-alert-count">0</span>
+          </button>
+
+          <button type="button" class="nav-btn" data-nav-target="records" data-testid="nav-records">
+            <span class="nav-btn-left">
+              <i data-lucide="file-spreadsheet"></i>
+              <span>Ventas, Clientes y Kardex</span>
+            </span>
+          </button>
+
+          
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="branch-card">
+          <div class="branch-status">
+            <span class="status-dot"></span>
+            <span>Servidor Express + SQLite Activo</span>
+          </div>
+          <div style="color: var(--color-text-muted);">
+            Sucursal: Av. Comercial 480, Lima<br />
+            Arquitectura: Web App <br />
+            Sincronización de Stock en Tiempo Real
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Cabecera Superior -->
+    <header class="top-header">
+      <div class="header-left">
+        <div>
+          <h1 class="page-heading" id="current-view-title">Panel Ejecutivo y Control Operativo</h1>
+          <p class="page-subheading" id="current-view-subtitle">Monitoreo en tiempo real de stock, alertas de reposición y velocidad de atención al cliente en Botica Nova Salud</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="pharmacist-selector">
+          <i data-lucide="user-check" style="width:16px;height:16px;color:var(--color-primary);"></i>
+          <label for="active-cashier-select" class="sr-only">Responsable en turno</label>
+          <select id="active-cashier-select" data-testid="select-cashier">
+            <option value="Q.F. Elena Vargas (DT)">Q.F. Elena Vargas (Químico Farmacéutico)</option>
+            <option value="Téc. Carlos Mendoza">Téc. Carlos Mendoza (Atención Mostrador)</option>
+            <option value="Ing. Saúl Trujillo (Admin)">Ing. Saúl Trujillo (Administrador )</option>
+          </select>
+        </div>
+
+        <button type="button" class="btn btn-primary" id="quick-pos-btn" data-testid="button-quick-pos">
+          <i data-lucide="zap"></i>
+          <span>Nueva Venta Rápida</span>
+        </button>
+
+        <button type="button" class="icon-btn" id="theme-toggle-btn" data-testid="button-theme-toggle" aria-label="Cambiar entre modo claro y oscuro" title="Cambiar tema visual">
+          <i data-lucide="moon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Área de Trabajo Principal -->
+    <main class="main-workspace" id="main-content">
+
+      <!-- ========================================================
+           VISTA 1: PANEL EJECUTIVO (DASHBOARD & MÉTRICAS)
+           ======================================================== -->
+      <section class="view-panel active" id="view-dashboard" aria-labelledby="current-view-title">
+        <!-- 4 KPIs Principales -->
+        <div class="kpi-grid">
+          <article class="kpi-card">
+            <div class="kpi-header">
+              <span>Ventas Confirmadas</span>
+              <i data-lucide="banknote" style="width:18px;height:18px;color:var(--color-primary);"></i>
+            </div>
+            <div class="kpi-value" id="kpi-total-revenue" data-testid="kpi-total-revenue">S/ 0.00</div>
+            <div class="kpi-meta">
+              <span class="badge badge-success" id="kpi-sales-count">0 tickets</span>
+              <span id="kpi-avg-ticket">Ticket prom: S/ 0.00</span>
+            </div>
+          </article>
+
+          <article class="kpi-card">
+            <div class="kpi-header">
+              <span>Tiempo de Atención al Cliente</span>
+              <i data-lucide="timer" style="width:18px;height:18px;color:var(--color-success);"></i>
+            </div>
+            <div class="kpi-value" id="kpi-service-time" data-testid="kpi-service-time">49 seg</div>
+            <div class="kpi-meta">
+              <span class="badge badge-success" id="kpi-time-reduction">-82% vs manual</span>
+              <span>Antes (manual): 270 seg</span>
+            </div>
+          </article>
+
+          <article class="kpi-card">
+            <div class="kpi-header">
+              <span>Alertas de Reposición y vencimiento</span>
+              <i data-lucide="alert-triangle" style="width:18px;height:18px;color:var(--color-warning);"></i>
+            </div>
+            <div class="kpi-value" id="kpi-alerts-total" data-testid="kpi-alerts-total">0 productos</div>
+            <div class="kpi-meta">
+              <span class="badge badge-danger" id="kpi-out-count">0 agotados</span>
+              <span class="badge badge-warning" id="kpi-low-count">0 stock bajo</span>
+            </div>
+          </article>
+
+          <article class="kpi-card">
+            <div class="kpi-header">
+              <span>Valorización y Exactitud (ERI)</span>
+              <i data-lucide="shield-check" style="width:18px;height:18px;color:var(--color-info);"></i>
+            </div>
+            <div class="kpi-value" id="kpi-inventory-value" data-testid="kpi-inventory-value">S/ 0.00</div>
+            <div class="kpi-meta">
+              <span class="badge badge-info">ERI: 99.4%</span>
+              <span id="kpi-total-units">0 unid. físicas</span>
+            </div>
+          </article>
+        </div>
+
+        <!-- Franja de Acción Rápida para Alertas de Stock -->
+        <div class="alert-strip" id="dashboard-alert-strip">
+          <div class="alert-strip-content">
+            <i data-lucide="bell-ring" style="width:22px;height:22px;color:var(--color-warning);flex-shrink:0;margin-top:2px;"></i>
+            <div>
+              <div class="alert-strip-title" id="dashboard-alert-headline">Monitoreo Automático de Stock y Vencimientos Activo</div>
+              <p class="alert-strip-desc" id="dashboard-alert-subtext">El sistema supervisa el punto de reorden de cada SKU para evitar desabastecimientos en horas punta.</p>
+            </div>
+          </div>
+          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
+            <button type="button" class="btn btn-warning btn-sm" id="dash-go-alerts-btn" data-testid="button-dash-view-alerts">
+              <i data-lucide="arrow-right-circle"></i>
+              <span>Gestionar Alertas</span>
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" id="dash-restock-all-btn" data-testid="button-dash-restock-all">
+              <i data-lucide="refresh-cw"></i>
+              <span>Reabastecer Críticos en 1 Clic</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Gráficos Analíticos -->
+        <div class="panel-grid-2">
+          <section class="surface-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Ventas por Categoría Terapéutica (S/)</h2>
+                <p class="card-subtitle">Demanda real registrada en mostrador para priorizar compras</p>
+              </div>
+              <span class="badge badge-neutral">Tiempo Real</span>
+            </div>
+            <div class="chart-box">
+              <canvas id="chart-sales-category" aria-label="Gráfico de ventas por categoría terapéutica"></canvas>
+            </div>
+          </section>
+
+          <section class="surface-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Estado de Salud del Inventario</h2>
+                <p class="card-subtitle">Distribución de SKUs según cobertura de stock y control vencimiento</p>
+              </div>
+              <span class="badge badge-info">Control Automático</span>
+            </div>
+            <div class="chart-box">
+              <canvas id="chart-stock-health" aria-label="Gráfico de salud del inventario"></canvas>
+            </div>
+          </section>
+        </div>
+
+        <!-- Tablas Inferiores del Dashboard -->
+        <div class="panel-grid-2">
+          <section class="surface-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Productos que Requieren Reposición Inmediata</h2>
+                <p class="card-subtitle">Medicamentos debajo del stock mínimo o próximos a vencer</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" data-Jump-view="inventory">Ver Inventario Completo</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" style="min-width: 520px;">
+                <thead>
+                  <tr>
+                    <th>Medicamento / SKU</th>
+                    <th>Stock / Mín.</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="dash-critical-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="surface-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Últimas Atenciones y Ventas en Mostrador</h2>
+                <p class="card-subtitle">Comprobantes emitidos con medición de velocidad de atención</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" data-jump-view="records">Ver Historial</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" style="min-width: 520px;">
+                <thead>
+                  <tr>
+                    <th>Comprobante</th>
+                    <th>Cliente</th>
+                    <th>Tiempo</th>
+                    <th>Total (S/)</th>
+                    <th>Recibo</th>
+                  </tr>
+                </thead>
+                <tbody id="dash-sales-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           VISTA 2: PUNTO DE VENTA ÁGIL (POS Y ATENCIÓN AL CLIENTE)
+           ======================================================== -->
+      <section class="view-panel" id="view-pos" aria-label="Punto de Venta y Atención al Cliente">
+        <div class="pos-layout">
+          <!-- Columna Izquierda: Buscador Clínico Rápido y Catálogo -->
+          <div class="surface-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Buscador Rápido de Dispensación Farmacéutica</h2>
+                <p class="card-subtitle">Busque por nombre comercial, principio activo (DCI), código SKU o síntoma del paciente</p>
+              </div>
+              <span class="badge badge-info">FEFO Priorizado</span>
+            </div>
+
+            <div class="filter-bar" style="margin-bottom: var(--space-3); background: var(--color-surface-2);">
+              <div class="search-input-wrap">
+                <i data-lucide="search"></i>
+                <input
+                  type="search"
+                  id="pos-search-input"
+                  class="input-control"
+                  placeholder="Ej. Paracetamol, fiebre, migraña, Azitromicina, gripe, gastritis..."
+                  data-testid="input-pos-search"
+                />
+              </div>
+              <select id="pos-category-filter" class="select-control" aria-label="Filtrar por categoría en POS" data-testid="select-pos-category">
+                <option value="ALL">Todas las categorías</option>
+              </select>
+            </div>
+
+            <!-- Etiquetas de Síntomas Frecuentes para Atención en 1 Clic -->
+            <div style="display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;margin-bottom:var(--space-3);">
+              <span style="font-size:var(--text-xs);color:var(--color-text-muted);font-weight:600;">Consulta rápida por síntoma:</span>
+              <button type="button" class="badge badge-neutral pos-symptom-chip" data-symptom="dolor">Dolor / Fiebre</button>
+              <button type="button" class="badge badge-neutral pos-symptom-chip" data-symptom="gripe">Gripe / Congestión</button>
+              <button type="button" class="badge badge-neutral pos-symptom-chip" data-symptom="gastritis">Acidez / Gastritis</button>
+              <button type="button" class="badge badge-neutral pos-symptom-chip" data-symptom="infección">Infecciones (Rx)</button>
+              <button type="button" class="badge badge-neutral pos-symptom-chip" data-symptom="">Mostrar Todos</button>
+            </div>
+
+            <div class="pos-catalog-grid" id="pos-catalog-grid" data-testid="pos-catalog-grid"></div>
+          </div>
+
+          <!-- Columna Derecha: Ticket de Venta y Despacho -->
+          <aside class="pos-checkout-card" aria-label="Carrito de Venta Actual">
+            <div class="service-timer-bar">
+              <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:var(--color-primary);">
+                <i data-lucide="clock" style="width:15px;height:15px;"></i>
+                <span>Tiempo de Atención Actual:</span>
+              </div>
+              <span class="mono-val timer-badge badge badge-success" id="pos-timer-display" data-testid="pos-timer-display">00:12 seg (Meta &lt; 60s)</span>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-2);">
+              <h2 class="card-title">Ticket de Atención</h2>
+              <button type="button" class="btn btn-secondary btn-sm" id="pos-clear-cart-btn" data-testid="button-clear-cart">
+                <i data-lucide="trash-2"></i>
+                <span>Limpiar</span>
+              </button>
+            </div>
+
+            <!-- Selección de Cliente con Alerta de Farmacovigilancia -->
+            <div class="form-group" style="margin-bottom: var(--space-3);">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <label class="form-label" for="pos-customer-select">Cliente / Paciente</label>
+                <button type="button" class="btn btn-secondary btn-sm" id="pos-new-customer-btn" style="min-height:28px;padding:2px 8px;" data-testid="button-pos-new-customer">+ Nuevo Cliente</button>
+              </div>
+              <select id="pos-customer-select" class="select-control" style="width:100%;" data-testid="select-pos-customer"></select>
+              <div id="pos-allergy-banner" class="badge badge-warning" style="display:none;margin-top:6px;white-space:normal;border-radius:var(--radius-sm);padding:6px 10px;"></div>
+            </div>
+
+            <!-- Lista de Ítems en el Carrito -->
+            <div class="cart-list" id="pos-cart-list" data-testid="pos-cart-list"></div>
+
+            <!-- Campo Condicional de Receta Médica -->
+            <div class="form-group" id="pos-rx-box" style="display:none;margin-bottom:var(--space-3);background:var(--color-info-bg);padding:var(--space-3);border-radius:var(--radius-md);border:1px solid var(--color-info-border);">
+              <label class="form-label" for="pos-rx-input" style="color:var(--color-info);font-weight:700;">
+                Medicamento con Receta Médica (Rx) — Ingrese N° CMP o Receta:
+              </label>
+              <input
+                type="text"
+                id="pos-rx-input"
+                class="input-control"
+                placeholder="Ej. CMP-048219 / Receta Clínica San Gabriel"
+                data-testid="input-pos-rx"
+              />
+            </div>
+
+            <!-- Configuración de Comprobante y Pago -->
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: var(--space-2);">
+              <div class="form-group">
+                <label class="form-label" for="pos-voucher-type">Comprobante</label>
+                <select id="pos-voucher-type" class="select-control" style="width:100%;" data-testid="select-pos-voucher">
+                  <option value="Boleta Electrónica">Boleta Electrónica</option>
+                  <option value="Factura Electrónica">Factura Electrónica</option>
+                  <option value="Nota de Venta">Nota de Venta</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="pos-payment-method">Medio de Pago</label>
+                <select id="pos-payment-method" class="select-control" style="width:100%;" data-testid="select-pos-payment">
+                  <option value="Efectivo">Efectivo (S/)</option>
+                  <option value="Yape / Plin">Yape / Plin (QR)</option>
+                  <option value="Tarjeta Débito/Crédito">Tarjeta Visa/Mastercard</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-grid" id="pos-cash-row" style="grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-top: var(--space-2);">
+              <div class="form-group">
+                <label class="form-label" for="pos-amount-received">Monto Recibido (S/)</label>
+                <input type="number" step="0.10" min="0" id="pos-amount-received" class="input-control mono-val" placeholder="0.00" data-testid="input-pos-received" />
+              </div>
+              <div class="form-group">
+                <span class="form-label">Vuelto a Entregar</span>
+                <div class="input-control mono-val" id="pos-change-display" style="display:flex;align-items:center;font-weight:700;background:var(--color-surface-2);">S/ 0.00</div>
+              </div>
+            </div>
+
+            <!-- Resumen Tributario IGV -->
+            <div class="totals-box">
+              <div class="totals-row">
+                <span>Op. Gravada (Subtotal sin IGV)</span>
+                <span class="mono-val" id="pos-subtotal">S/ 0.00</span>
+              </div>
+              <div class="totals-row">
+                <span>I.G.V. (18%)</span>
+                <span class="mono-val" id="pos-igv">S/ 0.00</span>
+              </div>
+              <div class="totals-row grand-total">
+                <span>Total a Cobrar</span>
+                <span class="tabular-nums" id="pos-total" data-testid="pos-total">S/ 0.00</span>
+              </div>
+            </div>
+
+            <div id="pos-inline-error" class="badge badge-danger" style="display:none;width:100%;justify-content:center;padding:8px;margin-bottom:var(--space-3);white-space:normal;"></div>
+
+            <button type="button" class="btn btn-primary" style="width:100%;font-size:var(--text-base);" id="pos-submit-sale-btn" data-testid="button-confirm-sale">
+              <i data-lucide="check-circle-2"></i>
+              <span>Confirmar Venta y Descontar Stock</span>
+            </button>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           VISTA 3: INVENTARIO CENTRALIZADO (STOCK, LOTES Y DIGEMID)
+           ======================================================== -->
+      <section class="view-panel" id="view-inventory" aria-label="Gestión Centralizada de Inventario">
+        <div class="filter-bar">
+          <div class="search-input-wrap">
+            <i data-lucide="search"></i>
+            <input
+              type="search"
+              id="inv-search-input"
+              class="input-control"
+              placeholder="Buscar por SKU, medicamento, principio activo, laboratorio o anaquel..."
+              data-testid="input-inv-search"
+            />
+          </div>
+
+          <select id="inv-category-filter" class="select-control" aria-label="Categoría de inventario" data-testid="select-inv-category">
+            <option value="ALL">Todas las Categorías</option>
+          </select>
+
+          <select id="inv-status-filter" class="select-control" aria-label="Estado de stock" data-testid="select-inv-status">
+            <option value="ALL">Todos los Estados</option>
+            <option value="CRITICAL">Críticos (Agotados + Stock Bajo)</option>
+            <option value="AGOTADO">Solo Agotados (0 unid.)</option>
+            <option value="STOCK_BAJO">Solo Stock Bajo (≤ Mínimo)</option>
+            <option value="FEFO">Alerta vencimiento (Próximos a Vencer)</option>
+            <option value="OPTIMO">Stock Óptimo</option>
+          </select>
+
+          <button type="button" class="btn btn-secondary" id="inv-export-csv-btn" data-testid="button-export-inventory">
+            <i data-lucide="download"></i>
+            <span>Exportar CSV</span>
+          </button>
+
+          <button type="button" class="btn btn-primary" id="inv-new-product-btn" data-testid="button-new-product">
+            <i data-lucide="plus-circle"></i>
+            <span>Nuevo Medicamento</span>
+          </button>
+        </div>
+
+        <div class="surface-card" style="padding: 0; overflow: hidden;">
+          <div class="table-responsive" style="border: none;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>SKU / Anaquel</th>
+                  <th>Medicamento y Principio Activo (DCI)</th>
+                  <th>Categoría / Laboratorio</th>
+                  <th>Lote y Vencimiento (FEFO)</th>
+                  <th>Precio Venta</th>
+                  <th>Stock Actual vs Mín.</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="inv-table-tbody" data-testid="inv-table-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           VISTA 4: MÓDULO DE ALERTAS DE REPOSICIÓN Y FEFO
+           ======================================================== -->
+      <section class="view-panel" id="view-alerts" aria-label="Centro de Alertas para Reposición de Productos">
+        <div class="kpi-grid">
+          <article class="kpi-card">
+            <div class="kpi-header">
+              <span>Quiebres de Stock (Agotados)</span>
+              <i data-lucide="x-octagon" style="width:18px;height:18px;color:var(--color-danger);"></i>
+            </div>
+            <div class="kpi-value" id="alert-kpi-out" style="color:var(--color-danger);">0 SKUs</div>
+            <div class="kpi-meta">Prioridad máxima de compra</div>
+          </article>
+
+          <article class="kpi-card">
+            <div class="kpi-header">
+              <span>En Punto de Reorden (Stock Bajo)</span>
+              <i data-lucide="trending-down" style="width:18px;height:18px;color:var(--color-warning);"></i>
+            </div>
+            <div class="kpi-value" id="alert-kpi-low" style="color:var(--color-warning);">0 SKUs</div>
+            <div class="kpi-meta">Debajo del umbral de seguridad</div>
+          </article>
+
+          <article class="kpi-card">
+            <div class="kpi-header">
+              <span>Riesgo de Vencimiento (FEFO ≤ 90d)</span>
+              <i data-lucide="calendar-clock" style="width:18px;height:18px;color:var(--color-info);"></i>
+            </div>
+            <div class="kpi-value" id="alert-kpi-fefo">0 lotes</div>
+            <div class="kpi-meta">Priorizar despacho en mostrador</div>
+          </article>
+
+          <article class="kpi-card">
+            <div class="kpi-header">
+              <span>Presupuesto Estimado de Reposición</span>
+              <i data-lucide="truck" style="width:18px;height:18px;color:var(--color-primary);"></i>
+            </div>
+            <div class="kpi-value" id="alert-kpi-budget">S/ 0.00</div>
+            <div class="kpi-meta">
+              <button type="button" class="btn btn-primary btn-sm" id="alerts-bulk-restock-btn" data-testid="button-alerts-bulk-restock">
+                <i data-lucide="check-check"></i>
+                <span>Emitir y Recibir Todo el Lote Crítico</span>
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <div class="surface-card" style="margin-bottom: var(--space-5);">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Alertas Activas de Stock Bajo y Desabastecimiento</h2>
+              <p class="card-subtitle">Cálculo automatizado de pedido sugerido según stock mínimo de seguridad</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Medicamento / Laboratorio</th>
+                  <th>Stock Actual</th>
+                  <th>Stock Mínimo</th>
+                  <th>Pedido Sugerido</th>
+                  <th>Costo Estimado</th>
+                  <th>Severidad</th>
+                  <th>Acción Inmediata</th>
+                </tr>
+              </thead>
+              <tbody id="alerts-stock-tbody" data-testid="alerts-stock-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel-grid-2">
+          <section class="surface-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Control FEFO: Lotes Próximos a Vencer (≤ 90 días)</h2>
+                <p class="card-subtitle">Prevención de pérdidas por caducidad en almacén</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" style="min-width: 480px;">
+                <thead>
+                  <tr>
+                    <th>Medicamento</th>
+                    <th>Lote / Vence</th>
+                    <th>Plazo</th>
+                    <th>Stock</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="alerts-fefo-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="surface-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Órdenes de Reposición Emitidas Recientemente</h2>
+                <p class="card-subtitle">Trazabilidad de abastecimiento con droguerías</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" style="min-width: 480px;">
+                <thead>
+                  <tr>
+                    <th>Orden</th>
+                    <th>Medicamento</th>
+                    <th>Cant.</th>
+                    <th>Total (S/)</th>
+                    <th>Lote Ingresado</th>
+                  </tr>
+                </thead>
+                <tbody id="alerts-orders-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           VISTA 5: HISTORIAL DE VENTAS, CLIENTES Y KARDEX
+           ======================================================== -->
+      <section class="view-panel" id="view-records" aria-label="Registros de Ventas, Clientes y Auditoría Kardex">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-3);margin-bottom:var(--space-4);">
+          <div class="subtabs" role="tablist">
+            <button type="button" class="subtab-btn active" data-record-tab="sales" data-testid="tab-records-sales">Registro de Ventas</button>
+            <button type="button" class="subtab-btn" data-record-tab="kardex" data-testid="tab-records-kardex">Kardex de Auditoría</button>
+            <button type="button" class="subtab-btn" data-record-tab="customers" data-testid="tab-records-customers">Clientes y Farmacovigilancia</button>
+          </div>
+
+          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" id="export-sales-btn" data-testid="button-export-sales">
+              <i data-lucide="download"></i>
+              <span>CSV Ventas</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="export-kardex-btn" data-testid="button-export-kardex">
+              <i data-lucide="download"></i>
+              <span>CSV Kardex</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Subvista 5A: Historial de Ventas -->
+        <div id="subview-sales" class="record-subview">
+          <div class="surface-card" style="padding:0;overflow:hidden;">
+            <div class="table-responsive" style="border:none;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>N° Comprobante</th>
+                    <th>Fecha y Hora</th>
+                    <th>Cliente / Doc.</th>
+                    <th>Medio de Pago</th>
+                    <th>Tiempo Atención</th>
+                    <th>Total (S/)</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="records-sales-tbody" data-testid="records-sales-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subvista 5B: Kardex de Auditoría -->
+        <div id="subview-kardex" class="record-subview" style="display:none;">
+          <div class="surface-card" style="padding:0;overflow:hidden;">
+            <div class="table-responsive" style="border:none;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Tipo de Movimiento</th>
+                    <th>SKU / Medicamento</th>
+                    <th>Variación</th>
+                    <th>Stock Ant. → Nuevo</th>
+                    <th>Lote</th>
+                    <th>Doc. Referencia</th>
+                    <th>Responsable / Observación</th>
+                  </tr>
+                </thead>
+                <tbody id="records-kardex-tbody" data-testid="records-kardex-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subvista 5C: Directorio de Clientes -->
+        <div id="subview-customers" class="record-subview" style="display:none;">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:var(--space-3);">
+            <button type="button" class="btn btn-primary btn-sm" id="records-add-customer-btn" data-testid="button-records-new-customer">
+              <i data-lucide="user-plus"></i>
+              <span>Registrar Nuevo Cliente</span>
+            </button>
+          </div>
+          <div class="surface-card" style="padding:0;overflow:hidden;">
+            <div class="table-responsive" style="border:none;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Documento</th>
+                    <th>Nombre / Razón Social</th>
+                    <th>Teléfono / Correo</th>
+                    <th>Ficha Farmacovigilancia / Alergias</th>
+                    <th>Compras</th>
+                    <th>Total Acumulado</th>
+                    <th>Puntos</th>
+                  </tr>
+                </thead>
+                <tbody id="records-customers-tbody" data-testid="records-customers-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+     
+
+    </main>
+  </div>
+
+  <!-- ========================================================
+       MODALES IN-PAGE ACCESIBLES (REPOSICIÓN, PRODUCTO, CLIENTE, RECIBO, ANULACIÓN)
+       ======================================================== -->
+
+  <!-- Modal 1: Reabastecer Producto / Ingreso de Lote -->
+  <div class="modal-backdrop" id="modal-restock" role="dialog" aria-modal="true" aria-labelledby="modal-restock-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-restock-title">Generar Orden de Reposición e Ingreso de Stock</h2>
+        <button type="button" class="icon-btn" data-close-modal="modal-restock" aria-label="Cerrar ventana">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="form-restock">
+        <input type="hidden" id="restock-product-id" />
+        <div style="background:var(--color-surface-2);padding:var(--space-3);border-radius:var(--radius-md);margin-bottom:var(--space-4);border:1px solid var(--color-border);">
+          <div style="font-weight:700;" id="restock-product-name">-</div>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);" id="restock-product-meta">-</div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="restock-qty">Cantidad a Ingresar (Unidades)</label>
+            <input type="number" id="restock-qty" class="input-control mono-val" min="1" required data-testid="input-restock-qty" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="restock-supplier">Droguería / Proveedor</label>
+            <select id="restock-supplier" class="select-control" style="width:100%;">
+              <option value="Droguería Química Suiza S.A.C.">Droguería Química Suiza S.A.C.</option>
+              <option value="Droguería Albis S.A.">Droguería Albis S.A.</option>
+              <option value="Droguería InRetail Pharma">Droguería InRetail Pharma</option>
+              <option value="Distribuidora Deco S.A.C.">Distribuidora Deco S.A.C.</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="restock-batch">Código de Nuevo Lote</label>
+            <input type="text" id="restock-batch" class="input-control mono-val" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="restock-expiry">Nueva Fecha de Vencimiento</label>
+            <input type="date" id="restock-expiry" class="input-control mono-val" required />
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:var(--space-2);margin-top:var(--space-5);">
+          <button type="button" class="btn btn-secondary" data-close-modal="modal-restock">Cancelar</button>
+          <button type="submit" class="btn btn-primary" data-testid="button-submit-restock">
+            <i data-lucide="package-plus"></i>
+            <span>Confirmar Ingreso al Inventario</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Crear / Editar Medicamento -->
+  <div class="modal-backdrop" id="modal-product" role="dialog" aria-modal="true" aria-labelledby="modal-product-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-product-title">Registrar Medicamento en Catálogo</h2>
+        <button type="button" class="icon-btn" data-close-modal="modal-product" aria-label="Cerrar ventana">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="form-product">
+        <input type="hidden" id="prod-id" />
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="prod-sku">Código SKU</label>
+            <input type="text" id="prod-sku" class="input-control mono-val" placeholder="Ej. MED-017" required data-testid="input-prod-sku" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-name">Nombre Comercial</label>
+            <input type="text" id="prod-name" class="input-control" placeholder="Ej. Ibuprofeno 400mg" required data-testid="input-prod-name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-dci">Principio Activo (DCI)</label>
+            <input type="text" id="prod-dci" class="input-control" placeholder="Ej. Ibuprofeno 400mg" required data-testid="input-prod-dci" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-category">Categoría Terapéutica</label>
+            <select id="prod-category" class="select-control" style="width:100%;">
+              <option value="Analgésicos y Antipiréticos">Analgésicos y Antipiréticos</option>
+              <option value="Antibióticos e Infecciones">Antibióticos e Infecciones</option>
+              <option value="Respiratorios y Antigripales">Respiratorios y Antigripales</option>
+              <option value="Gastrointestinales">Gastrointestinales</option>
+              <option value="Cardiovascular y Crónicos">Cardiovascular y Crónicos</option>
+              <option value="Vitaminas y Suplementos">Vitaminas y Suplementos</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-lab">Laboratorio</label>
+            <input type="text" id="prod-lab" class="input-control" placeholder="Ej. Medifarma S.A." required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-presentation">Presentación</label>
+            <input type="text" id="prod-presentation" class="input-control" placeholder="Ej. Caja x 20 tabletas" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-location">Ubicación en Botica</label>
+            <input type="text" id="prod-location" class="input-control" placeholder="Ej. Anaquel A-06" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-digemid">Reg. Sanitario DIGEMID</label>
+            <input type="text" id="prod-digemid" class="input-control mono-val" placeholder="Ej. EN-06412" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-batch">Código de Lote</label>
+            <input type="text" id="prod-batch" class="input-control mono-val" placeholder="Ej. LT-2026B" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-expiry">Fecha de Vencimiento</label>
+            <input type="date" id="prod-expiry" class="input-control mono-val" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-cost">Precio Costo (S/)</label>
+            <input type="number" step="0.10" min="0.1" id="prod-cost" class="input-control mono-val" required data-testid="input-prod-cost" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-price">Precio Venta Público (S/)</label>
+            <input type="number" step="0.10" min="0.1" id="prod-price" class="input-control mono-val" required data-testid="input-prod-price" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-stock">Stock Físico Actual</label>
+            <input type="number" min="0" id="prod-stock" class="input-control mono-val" required data-testid="input-prod-stock" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="prod-min-stock">Stock Mínimo (Alerta)</label>
+            <input type="number" min="1" id="prod-min-stock" class="input-control mono-val" required data-testid="input-prod-min-stock" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:var(--space-3);">
+          <label class="form-label" for="prod-indications">Indicaciones / Síntomas para Búsqueda Rápida en Mostrador</label>
+          <input type="text" id="prod-indications" class="input-control" placeholder="Ej. Dolor articular, fiebre, cefalea..." required />
+        </div>
+        <div style="margin-top:var(--space-3);display:flex;align-items:center;gap:var(--space-2);">
+          <input type="checkbox" id="prod-rx" style="width:18px;height:18px;" />
+          <label for="prod-rx" style="font-size:var(--text-sm);font-weight:600;">Requiere Receta Médica (Condición Rx)</label>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:var(--space-2);margin-top:var(--space-5);">
+          <button type="button" class="btn btn-secondary" data-close-modal="modal-product">Cancelar</button>
+          <button type="submit" class="btn btn-primary" data-testid="button-save-product">Guardar en Inventario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: Alternativas Bioequivalentes -->
+  <div class="modal-backdrop" id="modal-alternatives" role="dialog" aria-modal="true" aria-labelledby="modal-alt-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-alt-title">Sustitutos Bioequivalentes y Alternativas Disponibles</h2>
+        <button type="button" class="icon-btn" data-close-modal="modal-alternatives" aria-label="Cerrar ventana">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div id="modal-alt-body"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:var(--space-4);">
+        <button type="button" class="btn btn-secondary" data-close-modal="modal-alternatives">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Registrar Nuevo Cliente -->
+  <div class="modal-backdrop" id="modal-customer" role="dialog" aria-modal="true" aria-labelledby="modal-customer-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-customer-title">Registrar Cliente y Ficha de Atención Farmacéutica</h2>
+        <button type="button" class="icon-btn" data-close-modal="modal-customer" aria-label="Cerrar ventana">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="form-customer">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="cust-doc-type">Tipo Documento</label>
+            <select id="cust-doc-type" class="select-control" style="width:100%;">
+              <option value="DNI">DNI</option>
+              <option value="RUC">RUC</option>
+              <option value="CE">Carné de Extranjería</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cust-doc-num">Número de Documento</label>
+            <input type="text" id="cust-doc-num" class="input-control mono-val" placeholder="Ej. 48291034" required data-testid="input-cust-doc" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cust-name">Nombres y Apellidos / Razón Social</label>
+            <input type="text" id="cust-name" class="input-control" placeholder="Ej. Ana Lucía Torres Vega" required data-testid="input-cust-name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cust-phone">Teléfono / Celular</label>
+            <input type="text" id="cust-phone" class="input-control" placeholder="Ej. 987 654 321" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:var(--space-3);">
+          <label class="form-label" for="cust-allergies">Observaciones de Farmacovigilancia / Alergias Conocidas</label>
+          <input type="text" id="cust-allergies" class="input-control" placeholder="Ej. Alergia a Penicilina / Paciente diabético / Ninguna registrada" />
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:var(--space-2);margin-top:var(--space-5);">
+          <button type="button" class="btn btn-secondary" data-close-modal="modal-customer">Cancelar</button>
+          <button type="submit" class="btn btn-primary" data-testid="button-save-customer">Registrar Cliente</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 5: Comprobante Electrónico de Venta -->
+  <div class="modal-backdrop" id="modal-receipt" role="dialog" aria-modal="true" aria-labelledby="modal-receipt-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-receipt-title">Comprobante Emitido — Botica Nova Salud</h2>
+        <button type="button" class="icon-btn" data-close-modal="modal-receipt" aria-label="Cerrar comprobante">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="receipt-paper" id="receipt-content" data-testid="receipt-content"></div>
+      <div style="display:flex;justify-content:flex-end;gap:var(--space-2);margin-top:var(--space-4);">
+        <button type="button" class="btn btn-secondary" id="download-receipt-txt-btn" data-testid="button-download-receipt">
+          <i data-lucide="download"></i>
+          <span>Descargar Ticket (.txt)</span>
+        </button>
+        <button type="button" class="btn btn-primary" data-close-modal="modal-receipt" data-testid="button-close-receipt">Listo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 6: Confirmar Anulación de Venta con Reversión de Stock -->
+  <div class="modal-backdrop" id="modal-cancel-sale" role="dialog" aria-modal="true" aria-labelledby="modal-cancel-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-cancel-title">Anular Comprobante y Revertir Stock al Inventario</h2>
+        <button type="button" class="icon-btn" data-close-modal="modal-cancel-sale" aria-label="Cerrar ventana">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <form id="form-cancel-sale">
+        <input type="hidden" id="cancel-sale-id" />
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-3);" id="cancel-sale-summary"></p>
+        <div class="form-group">
+          <label class="form-label" for="cancel-sale-reason">Motivo de la Anulación (Auditoría Kardex)</label>
+          <input type="text" id="cancel-sale-reason" class="input-control" value="Devolución inmediata en mostrador / Corrección de ticket" required />
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:var(--space-2);margin-top:var(--space-5);">
+          <button type="button" class="btn btn-secondary" data-close-modal="modal-cancel-sale">Volver</button>
+          <button type="submit" class="btn btn-danger" data-testid="button-confirm-cancel-sale">
+            <i data-lucide="rotate-ccw"></i>
+            <span>Confirmar Anulación y Devolver Stock</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Pila de Notificaciones Contextuales -->
+  <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+
+  <!-- Enlace de Puerto Dinámico al Backend Express (Reescrito al desplegar) -->
+  <script>
+    window.__API_BASE__ = '__PORT_8000__';
+  </script>
+  <script src="./app.js" defer></script>
+</body>
+</html>
